@@ -225,7 +225,15 @@ target_include_directories(CLI11 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/cli11")
 
 add_library(vulkan INTERFACE)
 target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/Vulkan-Headers/include")
-if(APPLE)
+if(IOS)
+	# trimmed MoltenVK built by ios/moltenvk/build_moltenvk.sh
+	set(MOLTENVK_IOS_DIR "" CACHE PATH "Directory produced by ios/moltenvk/build_moltenvk.sh")
+	if(NOT EXISTS "${MOLTENVK_IOS_DIR}/include/MoltenVK/mvk_vulkan.h")
+		message(FATAL_ERROR "MOLTENVK_IOS_DIR must point to the output of ios/moltenvk/build_moltenvk.sh")
+	endif()
+	target_include_directories(vulkan INTERFACE "${MOLTENVK_IOS_DIR}/include")
+	set(MOLTENVK_DYLIB "${MOLTENVK_IOS_DIR}/dylib/iOS/libMoltenVK.dylib" PARENT_SCOPE)
+elseif(APPLE)
 	if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/MoltenVK-macos.tar")
 		message(STATUS "Downloading MoltenVK...")
 		file(DOWNLOAD https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.11-artifacts/MoltenVK-macos.tar
@@ -269,7 +277,7 @@ if(ANDROID)
 endif()
 add_subdirectory(ffmpeg)
 
-if(APPLE OR NOT FORCE_BUILD_OPENSSL_MAC)
+if((APPLE OR NOT FORCE_BUILD_OPENSSL_MAC) AND NOT IOS)
 	execute_process(
 		COMMAND brew --prefix openssl
 		RESULT_VARIABLE BREW_RESULT
@@ -455,7 +463,7 @@ endif()
 # Use XDG desktop portals on Linux
 set(NFD_PORTAL ON)
 
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
 	# nativefiledialog-extended
 	add_subdirectory(nativefiledialog-extended)
 

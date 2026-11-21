@@ -228,6 +228,24 @@ void HostRingBuffer::copy(vk::CommandBuffer cmd_buffer, const uint32_t size, con
         allocator.flushAllocation(buffer.allocation, data_offset + offset, size);
 }
 
+void HostRingBuffer::allocate_restrided(const uint32_t vertex_count, const uint32_t src_stride, const uint32_t dst_stride, const uint8_t *data) {
+    const uint32_t data_size = vertex_count * dst_stride;
+    allocate(data_size);
+
+    uint8_t *dst = static_cast<uint8_t *>(buffer.mapped_data) + data_offset;
+    const uint32_t padding = dst_stride - src_stride;
+    for (uint32_t i = 0; i < vertex_count; i++) {
+        memcpy(dst, data, src_stride);
+        for (uint32_t pad = 0; pad < padding; pad++)
+            dst[src_stride + pad] = 0;
+        dst += dst_stride;
+        data += src_stride;
+    }
+
+    if (!is_coherent)
+        allocator.flushAllocation(buffer.allocation, data_offset, data_size);
+}
+
 void LocalRingBuffer::create() {
     // the auto_alloc default behavior should give us memory on the gpu
     // UpdateBuffer needs the buffer to have TransferDst specified

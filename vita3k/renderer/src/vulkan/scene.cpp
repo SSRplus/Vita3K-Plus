@@ -100,23 +100,6 @@ void mid_scene_flush(VKContext &context, const SceGxmNotification notification) 
     }
 }
 
-#ifdef __APPLE__
-// restride vertex attribute binding strides to multiple of 4
-// needed for metal because it only allows multiples of 4.
-void restride_stream(const uint8_t *&stream, uint32_t &size, uint32_t stride) {
-    const uint32_t new_stride = align(stride, 4);
-    const uint32_t nb_vertex_input = ((size + stride - 1) / stride);
-
-    uint8_t *new_data = new uint8_t[nb_vertex_input * new_stride];
-    for (uint32_t i = 0; i < nb_vertex_input; i++) {
-        memcpy(new_data + new_stride * i, stream + stride * i, stride);
-    }
-
-    stream = new_data;
-    size = nb_vertex_input * new_stride;
-}
-#endif
-
 // when needed, how many descriptor of the given size we allocate for each frame at once
 static constexpr uint32_t DESCRIPTOR_PACK_SIZE = 64;
 
@@ -184,26 +167,67 @@ static void draw_bind_descriptors(VKContext &context, MemState &mem) {
     context.last_vert_texture_count = vertex_textures_count;
     context.last_frag_texture_count = fragment_texture_count;
 
-    {
-        if (need_vert_descr) {
-            context.last_vert_texture_descriptor = retrieve_descriptor(context, true, vertex_textures_count);
-        }
-        descriptors[2] = context.last_vert_texture_descriptor;
-
-        if (need_frag_descr) {
-            context.last_frag_texture_descriptor = retrieve_descriptor(context, false, fragment_texture_count);
-        }
-        descriptors[3] = context.last_frag_texture_descriptor;
-    }
-
-    // bind textures
-    std::array<vk::WriteDescriptorSet, 16> write_descrs;
     // some default sampler in case a slot has never been set and we read a slot with higher idx
     vk::DescriptorImageInfo default_image_info{
         .sampler = context.state.default_image.sampler,
         .imageView = context.state.default_image.view,
         .imageLayout = vk::ImageLayout::eGeneral
     };
+
+    // Look the exact (sampler, view) combination up before allocating/writing a set: a set that was already
+    // written this frame with identical content is re-bound for free.
+    const auto make_key = [&](const vk::DescriptorImageInfo *textures, uint32_t count) {
+        TextureDescriptorKey key;
+        key.count = count;
+        for (uint32_t i = 0; i < count; i++) {
+            const vk::DescriptorImageInfo &info = textures[i].sampler ? textures[i] : default_image_info;
+            key.handles[2 * i] = reinterpret_cast<uint64_t>(static_cast<VkSampler>(info.sampler));
+            key.handles[2 * i + 1] = reinterpret_cast<uint64_t>(static_cast<VkImageView>(info.imageView));
+        }
+        return key;
+    };
+
+    FrameObject &frame_obj = state.frame();
+    if (need_vert_descr) {
+        if (vertex_textures_count == 0) {
+            context.last_vert_texture_descriptor = context.empty_set;
+            need_vert_descr = false;
+        } else {
+            const TextureDescriptorKey key = make_key(context.vertex_textures, vertex_textures_count);
+            auto &written = frame_obj.vert_descriptors[vertex_textures_count - 1].written_sets;
+            const auto it = written.find(key);
+            if (it != written.end()) {
+                context.last_vert_texture_descriptor = it->second;
+                need_vert_descr = false;
+            } else {
+                context.last_vert_texture_descriptor = retrieve_descriptor(context, true, vertex_textures_count);
+                written.emplace(key, context.last_vert_texture_descriptor);
+            }
+        }
+    }
+    descriptors[2] = context.last_vert_texture_descriptor;
+
+    if (need_frag_descr) {
+        if (fragment_texture_count == 0) {
+            context.last_frag_texture_descriptor = context.empty_set;
+            need_frag_descr = false;
+        } else {
+            const TextureDescriptorKey key = make_key(context.fragment_textures, fragment_texture_count);
+            auto &written = frame_obj.frag_descriptors[fragment_texture_count - 1].written_sets;
+            const auto it = written.find(key);
+            if (it != written.end()) {
+                context.last_frag_texture_descriptor = it->second;
+                need_frag_descr = false;
+            } else {
+                context.last_frag_texture_descriptor = retrieve_descriptor(context, false, fragment_texture_count);
+                written.emplace(key, context.last_frag_texture_descriptor);
+            }
+        }
+    }
+    descriptors[3] = context.last_frag_texture_descriptor;
+
+    // bind textures (only for sets that were not already written with this exact content)
+    std::array<vk::WriteDescriptorSet, 16> write_descrs;
 
     // vertex
     if (need_vert_descr) {
@@ -298,22 +322,18 @@ static void bind_vertex_streams(VKContext &context, MemState &mem, uint32_t inst
                 context.vertex_stream_buffers[i] = buffer;
             } else {
                 const uint8_t *stream = state.vertex_streams[i].data.get(mem);
-                uint32_t stream_size = state.vertex_streams[i].size;
+                const uint32_t stream_size = state.vertex_streams[i].size;
 #ifdef __APPLE__
                 // Vulkan allows any stride, but Metal only allows multiples of 4.
-                const bool restride = vertex_program.streams[i].stride % 4 != 0;
-                if (restride) {
-                    restride_stream(stream, stream_size, vertex_program.streams[i].stride);
-                }
+                // The widened vertices are written directly in the ring buffer.
+                const uint32_t stride = vertex_program.streams[i].stride;
+                if (stride % 4 != 0) {
+                    const uint32_t nb_vertex_input = (stream_size + stride - 1) / stride;
+                    context.vertex_stream_ring_buffer.allocate_restrided(nb_vertex_input, stride, align(stride, 4), stream);
+                } else
 #endif
-                context.vertex_stream_ring_buffer.allocate(context.prerender_cmd, stream_size, stream);
+                    context.vertex_stream_ring_buffer.allocate(context.prerender_cmd, stream_size, stream);
                 context.vertex_stream_offsets[i] = context.vertex_stream_ring_buffer.data_offset;
-
-#ifdef __APPLE__
-                if (restride) {
-                    delete[] stream;
-                }
-#endif
             }
 
             state.vertex_streams[i].data = nullptr;

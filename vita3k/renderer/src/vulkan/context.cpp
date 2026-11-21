@@ -596,6 +596,8 @@ void new_frame(VKContext &context) {
     for (int i = 0; i < 16; i++) {
         frame.vert_descriptors[i].descriptors_idx = 0;
         frame.frag_descriptors[i].descriptors_idx = 0;
+        frame.vert_descriptors[i].written_sets.clear();
+        frame.frag_descriptors[i].written_sets.clear();
     }
     frame.color_descriptor.descriptors_idx = 0;
 

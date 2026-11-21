@@ -19,13 +19,20 @@ include("external/dynarmic/CMakeModules/DetectArchitecture.cmake")
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
+if(NOT IOS)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
+endif()
 
 # workaround for SDL due to cmake bug
 # https://github.com/libsdl-org/SDL/issues/6454
 # https://gitlab.kitware.com/cmake/cmake/-/issues/24104
 if(APPLE)
     enable_language(OBJC)
+endif()
+
+if(IOS)
+    enable_language(OBJCXX)
+    add_compile_definitions(VITA3K_IOS=1)
 endif()
 
 if(ANDROID)
@@ -45,7 +52,7 @@ if(ANDROID)
 		set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 	endif()
 else()
-	if((ARCHITECTURE STREQUAL "x86_64") OR APPLE)
+	if(((ARCHITECTURE STREQUAL "x86_64") OR APPLE) AND NOT IOS)
 		option(USE_DISCORD_RICH_PRESENCE "Build Vita3K with Discord Rich Presence" ON)
 	endif()
 	option(BUILD_APPIMAGE "Build an AppImage." OFF)
@@ -294,3 +301,7 @@ endif()
 add_subdirectory(external)
 add_subdirectory(vita3k)
 add_subdirectory(tools/gen-modules)
+
+if(IOS)
+	add_subdirectory(ios)
+endif()

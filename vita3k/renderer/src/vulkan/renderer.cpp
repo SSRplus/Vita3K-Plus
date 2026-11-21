@@ -469,6 +469,15 @@ bool VKState::create(std::unique_ptr<renderer::State> &state, const Config &conf
         const VkBool32 debug = VK_TRUE;
         const int32_t log_level = 4;
 #endif
+#ifdef VITA3K_IOS
+        // iOS: keep everything Vita3K needs (full swizzle, device resume) and only change the
+        // overheads: compile pipelines on every core, no perf tracking, errors-only logging.
+        const VkBool32 max_concurrent_compilation = VK_TRUE;
+        const VkBool32 no_perf_tracking = VK_FALSE;
+#ifdef NDEBUG
+        const int32_t ios_log_level = 1;
+#endif
+#endif
         vk::LayerSettingEXT layer_settings[] = {
             { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE", vk::LayerSettingTypeEXT::eBool32, 1,
                 &full_image_swizzle },
@@ -477,6 +486,15 @@ bool VKState::create(std::unique_ptr<renderer::State> &state, const Config &conf
 #ifndef NDEBUG
             { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_DEBUG", vk::LayerSettingTypeEXT::eBool32, 1, &debug },
             { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_LOG_LEVEL", vk::LayerSettingTypeEXT::eInt32, 1, &log_level },
+#endif
+#ifdef VITA3K_IOS
+            { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION", vk::LayerSettingTypeEXT::eBool32, 1,
+                &max_concurrent_compilation },
+            { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_PERFORMANCE_TRACKING", vk::LayerSettingTypeEXT::eBool32, 1,
+                &no_perf_tracking },
+#ifdef NDEBUG
+            { kMVKMoltenVKDriverLayerName, "MVK_CONFIG_LOG_LEVEL", vk::LayerSettingTypeEXT::eInt32, 1, &ios_log_level },
+#endif
 #endif
         };
 
@@ -991,6 +1009,7 @@ void VKState::cleanup() {
     const auto release_descriptor_sets = [](FrameDescriptor &descriptor) {
         std::vector<vk::DescriptorSet>().swap(descriptor.sets);
         descriptor.descriptors_idx = 0;
+        descriptor.written_sets.clear();
     };
 
     device.waitIdle();

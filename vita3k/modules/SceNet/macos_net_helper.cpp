@@ -17,7 +17,10 @@
 
 #include "macos_net_helper.h"
 
+#include <TargetConditionals.h>
+#if !TARGET_OS_IPHONE
 #include <SystemConfiguration/SystemConfiguration.h>
+#endif
 #include <cstring>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -29,6 +32,16 @@ bool is_physical_interface(const char *name) {
 }
 
 // Get the primary network interface name using SystemConfiguration
+#if TARGET_OS_IPHONE
+bool get_primary_interface_name(char *dest, size_t bufferSize) {
+    // SCDynamicStore does not exist on iOS, Wi-Fi is always en0 there
+    if (!dest || bufferSize < 4)
+        return false;
+    std::strncpy(dest, "en0", bufferSize - 1);
+    dest[bufferSize - 1] = '\0';
+    return true;
+}
+#else
 bool get_primary_interface_name(char *dest, size_t bufferSize) {
     bool success = false;
     auto size = static_cast<CFIndex>(bufferSize);
@@ -65,6 +78,7 @@ bool get_primary_interface_name(char *dest, size_t bufferSize) {
     CFRelease(store);
     return success;
 }
+#endif // TARGET_OS_IPHONE
 
 // Get MAC address from a physical interface
 // If hint is a physical interface, use it; otherwise find first active en*

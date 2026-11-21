@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <unordered_map>
+
 #include <renderer/texture_cache.h>
 #include <renderer/types.h>
 #include <shader/uniform_block.h>
@@ -84,9 +88,34 @@ struct VKTextureCache : public TextureCache {
     void cleanup();
 };
 
+// Identifies the exact content of a texture descriptor set: which (sampler, image view) pair sits in each binding.
+// UI heavy games (HUD, health bars, text) bind the same few atlases hundreds of times per frame; with this key a set
+// that was already written during the frame is simply re-bound instead of being re-allocated and re-written.
+struct TextureDescriptorKey {
+    uint32_t count = 0;
+    std::array<uint64_t, 32> handles{}; // [2 * i] = sampler, [2 * i + 1] = image view
+
+    bool operator==(const TextureDescriptorKey &other) const {
+        return count == other.count && std::equal(handles.begin(), handles.begin() + 2 * count, other.handles.begin());
+    }
+};
+
+struct TextureDescriptorKeyHash {
+    size_t operator()(const TextureDescriptorKey &key) const {
+        uint64_t h = 0xcbf29ce484222325ULL ^ key.count;
+        for (uint32_t i = 0; i < 2 * key.count; i++) {
+            h ^= key.handles[i] + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+            h *= 0x100000001b3ULL;
+        }
+        return static_cast<size_t>(h);
+    }
+};
+
 struct FrameDescriptor {
     std::vector<vk::DescriptorSet> sets;
     int descriptors_idx = 0;
+    // sets already written during the current frame, cleared whenever the frame object is recycled
+    std::unordered_map<TextureDescriptorKey, vk::DescriptorSet, TextureDescriptorKeyHash> written_sets;
 };
 
 struct FrameObject {

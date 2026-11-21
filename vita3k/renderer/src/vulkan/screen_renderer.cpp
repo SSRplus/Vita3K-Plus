@@ -110,6 +110,18 @@ bool ScreenRenderer::create() {
         this->surface = state.instance.createMetalSurfaceEXT(create_info);
         surface_created = true;
 #endif
+    } else if (const auto *handle = std::get_if<renderer::IOSDisplayHandle>(&display_handle)) {
+#ifdef __APPLE__
+        if (!handle->metal_layer) {
+            LOG_ERROR("The iOS frame host has no CAMetalLayer yet");
+            return false;
+        }
+
+        vk::MetalSurfaceCreateInfoEXT create_info{};
+        create_info.pLayer = static_cast<const CAMetalLayer *>(handle->metal_layer);
+        this->surface = state.instance.createMetalSurfaceEXT(create_info);
+        surface_created = true;
+#endif
     } else if (const auto *handle = std::get_if<renderer::AndroidDisplayHandle>(&display_handle)) {
 #ifdef __ANDROID__
         if (!handle->window) {

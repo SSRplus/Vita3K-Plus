@@ -1,0 +1,92 @@
+name: iOS Build (ipa / tipa)
+
+on:
+  push:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Vita3KiOS (arm64, iOS 16+)
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Select Xcode
+        run: |
+          ls /Applications | grep -i xcode || true
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1 || echo /Applications/Xcode.app)" || true
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install tools
+        run: |
+          brew update
+          brew install ninja cmake ldid pkg-config nasm autoconf automake libtool || true
+
+      - name: Cache MoltenVK
+        id: mvk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/moltenvk-out
+          key: moltenvk-ios-v1.2.11-${{ hashFiles('ios/moltenvk/build_moltenvk.sh') }}
+
+      - name: Build trimmed MoltenVK
+        if: steps.mvk-cache.outputs.cache-hit != 'true'
+        run: ios/moltenvk/build_moltenvk.sh "${{ runner.temp }}/moltenvk-out"
+
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vcpkg
+          key: vcpkg-ios-${{ hashFiles('vcpkg.json', 'ios/vcpkg/triplets/*') }}
+          restore-keys: vcpkg-ios-
+
+      - name: Configure and build
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+          VCPKG_DEFAULT_BINARY_CACHE: ~/.cache/vcpkg
+        run: |
+          mkdir -p ~/.cache/vcpkg
+          ios/scripts/configure_ios.sh "${{ runner.temp }}/moltenvk-out" "${{ github.workspace }}/build-ios"
+
+      - name: Verify bundle
+        run: |
+          APP=build-ios/ios-bin/Vita3KiOS.app
+          test -f "$APP/Vita3KiOS"
+          test -f "$APP/Frameworks/libMoltenVK.dylib"
+          test -d "$APP/shaders-builtin"
+          test -d "$APP/data"
+          lipo -info "$APP/Vita3KiOS"
+          vtool -show-build "$APP/Vita3KiOS" | head -n 20
+
+      - name: Package .ipa and .tipa
+        run: ios/scripts/package_ipa.sh build-ios/ios-bin/Vita3KiOS.app dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vita3K-iOS
+          path: |
+            dist/Vita3K-iOS.ipa
+            dist/Vita3K-iOS.tipa
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: |
+            build-ios/CMakeFiles/CMakeOutput.log
+            build-ios/CMakeFiles/CMakeError.log
+            vcpkg/buildtrees/**/*.log
+          if-no-files-found: ignore

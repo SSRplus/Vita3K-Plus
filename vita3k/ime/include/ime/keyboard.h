@@ -17,7 +17,7 @@
 
 #pragma once
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(VITA3K_IOS)
 
 struct SDL_Window;
 
@@ -34,4 +34,4 @@ void notify_ime_state_changed();
 
 } // namespace ime
 
-#endif // __ANDROID__
+#endif // __ANDROID__ || VITA3K_IOS

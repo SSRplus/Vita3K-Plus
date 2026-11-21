@@ -151,6 +151,11 @@ public:
     void create() override;
 
     void copy(vk::CommandBuffer cmd_buffer, const uint32_t size, const void *data, const uint32_t offset = 0) override;
+
+    // Allocate vertex_count * dst_stride bytes and widen every vertex from src_stride to dst_stride
+    // while writing straight into the mapped memory (no temporary heap copy).
+    // Used by Metal, which only accepts vertex strides that are a multiple of 4.
+    void allocate_restrided(const uint32_t vertex_count, const uint32_t src_stride, const uint32_t dst_stride, const uint8_t *data);
 };
 
 // Queue that contains GPU objects that are planned to be destroyed (deferred destruction)

@@ -33,6 +33,11 @@ struct MacOSDisplayHandle {
     void *view = nullptr;
 };
 
+// iOS: the CAMetalLayer of the SDL window (SDL_Metal_GetLayer)
+struct IOSDisplayHandle {
+    void *metal_layer = nullptr;
+};
+
 struct X11DisplayHandle {
     void *display = nullptr;
     std::uintptr_t window = 0;
@@ -53,7 +58,8 @@ using DisplayHandle = std::variant<std::monostate,
     MacOSDisplayHandle,
     X11DisplayHandle,
     WaylandDisplayHandle,
-    AndroidDisplayHandle>;
+    AndroidDisplayHandle,
+    IOSDisplayHandle>;
 
 class FrameHost {
 public:
