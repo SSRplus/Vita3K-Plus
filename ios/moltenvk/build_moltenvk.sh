@@ -31,7 +31,7 @@ fi
 cd "$WORK_DIR"
 
 # external dependencies (SPIRV-Cross, SPIRV-Tools, glslang, Vulkan headers ...) for iOS only
-./fetchDependencies --ios -j "$JOBS" || ./fetchDependencies --ios
+./fetchDependencies --ios
 
 rm -rf Package
 
@@ -52,11 +52,10 @@ xcodebuild build \
     GCC_PREPROCESSOR_DEFINITIONS='$(inherited) MVK_CONFIG_LOG_LEVEL=1 MVK_CONFIG_PERFORMANCE_TRACKING=0 MVK_CONFIG_DISPLAY_WATERMARK=0 MVK_CONFIG_TRACE_VULKAN_CALLS=0 MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1'
 
 echo "--- packaged files:"
-find Package -type f \( -name '*.dylib' -o -name '*.xcframework' -o -name 'mvk_vulkan.h' \) 2>/dev/null || true
-find . -name libMoltenVK.dylib -not -path './External/*' 2>/dev/null || true
+find Package -type f 2>/dev/null | grep -v '/include/' | head -50 || true
 
 DYLIB=""
-for candidate in $(find . -name libMoltenVK.dylib -not -path './External/*' 2>/dev/null); do
+for candidate in $(find Package -path '*dynamic*' \( -name libMoltenVK.dylib -o -path '*MoltenVK.framework/MoltenVK' \) -type f 2>/dev/null); do
     case "$candidate" in
         *[Ss]imulator*|*macOS*|*macos*|*tvOS*|*xrOS*|*visionOS*) continue ;;
     esac
