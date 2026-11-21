@@ -21,6 +21,7 @@ cmake -S "$ROOT" -B "$BUILD" -G Ninja \
     -DCMAKE_SYSTEM_NAME=iOS \
     -DCMAKE_OSX_SYSROOT=iphoneos \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_SYSTEM_PROCESSOR=arm64 \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
     -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
     -DVCPKG_TARGET_TRIPLET=arm64-ios-vita3k \
