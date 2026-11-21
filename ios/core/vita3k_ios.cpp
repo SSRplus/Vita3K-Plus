@@ -33,7 +33,9 @@
 #include <util/log.h>
 #include <util/string_utils.h>
 
+#define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -263,7 +265,7 @@ std::optional<app::AppEntry> find_app(const std::string &title_id) {
 }
 
 bool remove_if_exists(const fs::path &p) {
-    std::error_code ec;
+    boost::system::error_code ec;
     if (!fs::exists(p, ec))
         return false;
     fs::remove_all(p, ec);
