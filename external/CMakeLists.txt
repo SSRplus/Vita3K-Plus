@@ -98,6 +98,10 @@ set(BUNDLE_SPEEX TRUE CACHE BOOL "Bundle the speex library")
 set(LAZY_LOAD_LIBS TRUE CACHE BOOL "Lazily load shared libraries")
 set(USE_SANITIZERS FALSE CACHE BOOL "Dont't use sanitizers")
 
+if(IOS)
+	# iOS audio goes through SDL (CoreAudio/AVAudioSession); cubeb's AudioUnit backend is macOS only
+	add_library(cubeb INTERFACE)
+else()
 add_subdirectory(cubeb EXCLUDE_FROM_ALL)
 
 if (ARCHITECTURE STREQUAL "arm64")
@@ -110,6 +114,7 @@ elseif (ARCHITECTURE STREQUAL "x86_64")
 		_USE_SSE2
 	)
 endif ()
+endif()
 
 if(ANDROID)
 	if(ARCHITECTURE STREQUAL "arm64")
