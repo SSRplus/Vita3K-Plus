@@ -49,10 +49,23 @@ xcodebuild build \
     STRIP_STYLE=non-global \
     DEBUG_INFORMATION_FORMAT=dwarf \
     CODE_SIGNING_ALLOWED=NO \
-    GCC_PREPROCESSOR_DEFINITIONS='$(inherited) MVK_CONFIG_LOG_LEVEL=1 MVK_CONFIG_PERFORMANCE_TRACKING=0 MVK_CONFIG_DISPLAY_WATERMARK=0 MVK_CONFIG_TRACE_VULKAN_CALLS=0 MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1' \
-    -quiet
+    GCC_PREPROCESSOR_DEFINITIONS='$(inherited) MVK_CONFIG_LOG_LEVEL=1 MVK_CONFIG_PERFORMANCE_TRACKING=0 MVK_CONFIG_DISPLAY_WATERMARK=0 MVK_CONFIG_TRACE_VULKAN_CALLS=0 MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION=1'
 
-DYLIB="$(find Package -type f -name libMoltenVK.dylib -path '*iOS*' | grep -v -i simulator | head -n 1)"
+echo "--- packaged files:"
+find Package -type f \( -name '*.dylib' -o -name '*.xcframework' -o -name 'mvk_vulkan.h' \) 2>/dev/null || true
+find . -name libMoltenVK.dylib -not -path './External/*' 2>/dev/null || true
+
+DYLIB=""
+for candidate in $(find . -name libMoltenVK.dylib -not -path './External/*' 2>/dev/null); do
+    case "$candidate" in
+        *[Ss]imulator*|*macOS*|*macos*|*tvOS*|*xrOS*|*visionOS*) continue ;;
+    esac
+    # keep only arm64 iOS device builds
+    if lipo -info "$candidate" 2>/dev/null | grep -q arm64 && vtool -show-build "$candidate" 2>/dev/null | grep -q "platform IOS$"; then
+        DYLIB="$candidate"
+        break
+    fi
+done
 if [ -z "$DYLIB" ]; then
     echo "error: libMoltenVK.dylib for iOS was not produced" >&2
     exit 1
