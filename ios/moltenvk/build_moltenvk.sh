@@ -73,7 +73,9 @@ fi
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR/dylib/iOS" "$OUT_DIR/include"
 cp -p "$DYLIB" "$OUT_DIR/dylib/iOS/libMoltenVK.dylib"
-cp -R MoltenVK/include/MoltenVK "$OUT_DIR/include/MoltenVK"
+PKG_INC="$(dirname "$(find Package -name mvk_vulkan.h | head -n 1)")"   # .../include/MoltenVK
+cp -R "$PKG_INC" "$OUT_DIR/include/MoltenVK"
+test -f "$OUT_DIR/include/MoltenVK/mvk_vulkan.h" || { echo "error: MoltenVK headers missing" >&2; exit 1; }
 
 # make the dylib loadable from <app>/Frameworks through @rpath
 install_name_tool -id "@rpath/libMoltenVK.dylib" "$OUT_DIR/dylib/iOS/libMoltenVK.dylib"
