@@ -33,6 +33,8 @@ endif()
 if(IOS)
     enable_language(OBJCXX)
     add_compile_definitions(VITA3K_IOS=1)
+    # std::to_chars(float) is only annotated as iOS 16.3+; keep the 16.0 deployment target
+    add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
 endif()
 
 if(ANDROID)
