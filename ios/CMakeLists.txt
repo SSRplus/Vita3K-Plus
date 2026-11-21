@@ -76,10 +76,7 @@ set_target_properties(Vita3KiOS PROPERTIES
 # Provide an empty stand-in so the link resolves without pulling anything in.
 set(STUB_FW_DIR "${CMAKE_BINARY_DIR}/stub-frameworks")
 file(MAKE_DIRECTORY "${STUB_FW_DIR}/AudioUnit.framework")
-if(NOT EXISTS "${STUB_FW_DIR}/AudioUnit.framework/AudioUnit")
-	execute_process(COMMAND ar rc "${STUB_FW_DIR}/AudioUnit.framework/AudioUnit"
-		RESULT_VARIABLE STUB_AR_RESULT ERROR_QUIET)
-endif()
+file(WRITE "${STUB_FW_DIR}/AudioUnit.framework/AudioUnit" "!<arch>\n")
 target_link_options(Vita3KiOS PRIVATE "-F${STUB_FW_DIR}" -Wl,-no_warn_duplicate_libraries)
 
 # whole-archive for static module registries is not needed (modules are referenced explicitly),
