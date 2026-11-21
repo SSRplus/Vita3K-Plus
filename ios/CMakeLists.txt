@@ -72,6 +72,16 @@ set_target_properties(Vita3KiOS PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/ios-bin"
 )
 
+# Prebuilt ffmpeg-core lists `-framework AudioUnit` (macOS only; its symbols live in AudioToolbox on iOS).
+# Provide an empty stand-in so the link resolves without pulling anything in.
+set(STUB_FW_DIR "${CMAKE_BINARY_DIR}/stub-frameworks")
+file(MAKE_DIRECTORY "${STUB_FW_DIR}/AudioUnit.framework")
+if(NOT EXISTS "${STUB_FW_DIR}/AudioUnit.framework/AudioUnit")
+	execute_process(COMMAND ar rc "${STUB_FW_DIR}/AudioUnit.framework/AudioUnit"
+		RESULT_VARIABLE STUB_AR_RESULT ERROR_QUIET)
+endif()
+target_link_options(Vita3KiOS PRIVATE "-F${STUB_FW_DIR}" -Wl,-no_warn_duplicate_libraries)
+
 # whole-archive for static module registries is not needed (modules are referenced explicitly),
 # but dead stripping and ICF keep the binary small and the I-cache footprint low.
 target_link_options(Vita3KiOS PRIVATE -Wl,-dead_strip -Wl,-dead_strip_dylibs)
