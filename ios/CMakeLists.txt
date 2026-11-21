@@ -36,6 +36,7 @@ set_source_files_properties(${IOS_APP_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADER
 # the entire emulator is reused: the `vita3k` static library already links every module
 target_link_libraries(Vita3KiOS PRIVATE
 	vita3k
+	app audio compat config cppcommon ctrl dialog display ime lang gdbstub gxm io miniz modules motion packages patch renderer shader touch util psvpfsparser
 	SDL3::SDL3
 	pugixml::pugixml
 	"-framework UIKit"
