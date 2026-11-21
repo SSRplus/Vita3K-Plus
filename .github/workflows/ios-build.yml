@@ -55,9 +55,10 @@ jobs:
       - name: Configure and build
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-          VCPKG_DEFAULT_BINARY_CACHE: ~/.cache/vcpkg
         run: |
-          mkdir -p ~/.cache/vcpkg
+          mkdir -p "$HOME/.cache/vcpkg"
+          export VCPKG_DEFAULT_BINARY_CACHE="$HOME/.cache/vcpkg"
+          which ninja cmake
           ios/scripts/configure_ios.sh "${{ runner.temp }}/moltenvk-out" "${{ github.workspace }}/build-ios"
 
       - name: Verify bundle
