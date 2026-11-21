@@ -79,8 +79,9 @@ cp -R MoltenVK/include/MoltenVK "$OUT_DIR/include/MoltenVK"
 install_name_tool -id "@rpath/libMoltenVK.dylib" "$OUT_DIR/dylib/iOS/libMoltenVK.dylib"
 
 # sanity checks: the loader entry points Vita3K resolves must still be exported
+EXPORTS="$(nm -gU "$OUT_DIR/dylib/iOS/libMoltenVK.dylib")"
 for sym in _vkGetInstanceProcAddr _vkCreateInstance _vkCreateMetalSurfaceEXT; do
-    if ! nm -gU "$OUT_DIR/dylib/iOS/libMoltenVK.dylib" | grep -q " $sym\$"; then
+    if ! grep -q " $sym\$" <<<"$EXPORTS"; then
         echo "error: $sym is missing from the trimmed MoltenVK" >&2
         exit 1
     fi
