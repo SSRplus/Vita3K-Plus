@@ -34,9 +34,9 @@ jobs:
           brew update
           brew install ninja cmake ldid pkg-config nasm autoconf automake libtool || true
 
-      - name: Cache MoltenVK
+      - name: Restore MoltenVK cache
         id: mvk-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/moltenvk-out
           key: moltenvk-ios-v1.2.11-${{ hashFiles('ios/moltenvk/build_moltenvk.sh') }}
@@ -45,8 +45,16 @@ jobs:
         if: steps.mvk-cache.outputs.cache-hit != 'true'
         run: ios/moltenvk/build_moltenvk.sh "${{ runner.temp }}/moltenvk-out"
 
+      - name: Save MoltenVK cache
+        if: steps.mvk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/moltenvk-out
+          key: ${{ steps.mvk-cache.outputs.cache-primary-key }}
+
       - name: Cache vcpkg binaries
-        uses: actions/cache@v4
+        id: vcpkg-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/vcpkg
           key: vcpkg-ios-${{ hashFiles('vcpkg.json', 'ios/vcpkg/triplets/*') }}
@@ -60,6 +68,13 @@ jobs:
           export VCPKG_DEFAULT_BINARY_CACHE="$HOME/.cache/vcpkg"
           which ninja cmake
           ios/scripts/configure_ios.sh "${{ runner.temp }}/moltenvk-out" "${{ github.workspace }}/build-ios"
+
+      - name: Save vcpkg binaries
+        if: always() && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/vcpkg
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
 
       - name: Verify bundle
         run: |
